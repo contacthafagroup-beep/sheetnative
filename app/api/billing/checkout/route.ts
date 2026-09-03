@@ -6,11 +6,9 @@ import { createClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 
 const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  "https://supabase-api-prod.verdent.ai/p/p4fae8c46f211b6becca7";
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vbayhnlkcoqgssgapaay.supabase.co";
 const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoyMTA0MDQyMDU5LCJpYXQiOjE3ODg0MjI4NTksImlzcyI6InN1cGFiYXNlIiwicHJvamVjdF9yZWYiOiJwNGZhZThjNDZmMjExYjZiZWNjYTciLCJyb2xlIjoiYW5vbiJ9.gLMKxcYueFTDyJHIwEL35WB1hXYWpn2V8GeGOwZd9MY";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "REPLACE_WITH_ANON_KEY";
 
 function siteUrl(req: Request): string {
   return (
