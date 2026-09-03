@@ -38,6 +38,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
+    if ((window as { sheetnative?: { isDesktop?: boolean } }).sheetnative?.isDesktop) {
+      document.documentElement.classList.add("desktop");
+    }
+  }, []);
+
+  useEffect(() => {
     const sb = getSupabase();
     sb.auth.getSession().then(({ data }) => {
       if (!data.session) {
@@ -127,7 +133,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between border-b border-white/5 bg-black/20 px-5 py-2.5 backdrop-blur-xl">
+        <div
+          data-drag-region
+          data-drag-topbar
+          className="flex items-center justify-between border-b border-white/5 bg-black/20 px-5 py-2.5 backdrop-blur-xl"
+        >
           <span className="text-xs text-slate-500">AI-native business operating system</span>
           <button
             onClick={() => setChatOpen(true)}

@@ -1,19 +1,26 @@
 /**
- * SheetNative Desktop — native shell (Electron) for the SheetNative Business OS.
- * Slack-style: loads the production app, tray integration, close-to-tray,
- * external links in system browser, offline screen, window-state persistence.
+ * SheetNative Desktop — native shell (Electron).
+ * Real desktop-app feel: integrated title bar (drag regions in web chrome),
+ * native notifications, Explorer file drag-drop into the app, tray with
+ * launch-at-login + zoom + update check, close-to-tray, offline screen,
+ * window-state persistence, keyboard shortcuts.
  */
-const { app, BrowserWindow, Tray, Menu, shell, session, nativeImage, ipcMain } = require("electron");
+const { app, BrowserWindow, Tray, Menu, shell, session, nativeImage, Notification, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
 const PROD_URL = "https://sheetnative.vercel.app";
 const APP_URL = process.env.SHEETNATIVE_URL || PROD_URL;
 const APP_NAME = "SheetNative";
+const RELEASES_URL = "https://github.com/contacthafagroup-beep/sheetnative/releases/latest";
+const RELEASES_API = "https://api.github.com/repos/contacthafagroup-beep/sheetnative/releases/latest";
 
 let mainWindow = null;
 let tray = null;
 let quitting = false;
+let reconnectNotify = false;
+
+app.setAppUserModelId("com.sheetnative.desktop");
 
 const statePath = () => path.join(app.getPath("userData"), "window-state.json");
 
@@ -28,11 +35,20 @@ function loadWindowState() {
 function saveWindowState() {
   if (!mainWindow) return;
   const bounds = mainWindow.getBounds();
-  const state = { ...bounds, maximized: mainWindow.isMaximized() };
   try {
-    fs.writeFileSync(statePath(), JSON.stringify(state));
+    fs.writeFileSync(statePath(), JSON.stringify({ ...bounds, maximized: mainWindow.isMaximized() }));
   } catch {}
 }
+
+function notify(title, body) {
+  if (Notification.isSupported()) new Notification({ title, body, icon: trayIcon(32) }).show();
+}
+
+function trayIcon(size) {
+  return nativeImage.createFromPath(path.join(__dirname, "icon", "icon-256.png")).resize({ width: size, height: size });
+}
+
+/* ---------------- window ---------------- */
 
 function createWindow() {
   const prev = loadWindowState();
@@ -49,6 +65,13 @@ function createWindow() {
     autoHideMenuBar: true,
     icon: path.join(__dirname, "icon", "icon-256.png"),
     show: false,
+    frame: true,
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      color: "#07090f",
+      symbolColor: "#94a3b8",
+      hoverColor: "#1e293b",
+    },
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -59,66 +82,151 @@ function createWindow() {
   });
 
   if (prev.maximized) mainWindow.maximize();
-
   mainWindow.loadURL(APP_URL);
-
   mainWindow.once("ready-to-show", () => mainWindow.show());
 
-  // failed load (offline / DNS) → branded offline page
-  mainWindow.webContents.on("did-fail-load", (_e, code, desc, url, isMain) => {
-    if (isMain && code !== 0) {
-      mainWindow.loadFile("offline.html", { query: { url: APP_URL, reason: String(desc || code) } });
+  /* desktop feel: smooth fade-in + crisp text rendering */
+  mainWindow.webContents.on("did-finish-load", () => {
+    if (mainWindow.webContents.getURL().startsWith("file:")) return;
+    mainWindow.webContents.insertCSS(`
+      body { animation: sheetnative-boot .35s ease; }
+      @keyframes sheetnative-boot { from { opacity: 0 } to { opacity: 1 } }
+      ::selection { background: rgba(99,102,241,.4); }
+    `);
+    if (reconnectNotify) {
+      reconnectNotify = false;
+      notify("Back online", "SheetNative reconnected and synced.");
     }
   });
 
-  // external links → system browser
+  /* navigation guard: keep app inside product; route drops + external links */
+  mainWindow.webContents.on("will-navigate", (e, url) => {
+    if (url.startsWith("file:///")) {
+      e.preventDefault();
+      const p = path.normalize(decodeURIComponent(url.replace(/^file:\/\/\//, "")));
+      fs.readFile(p, (err, buf) => {
+        if (!err && mainWindow) {
+          mainWindow.webContents.send("native-file", { name: path.basename(p), data: buf });
+          notify("Workbook received", `${path.basename(p)} dropped into SheetNative.`);
+        }
+      });
+      return;
+    }
+    if (!url.startsWith(APP_URL) && !url.includes("supabase.co")) {
+      e.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith(APP_URL) && !url.includes("supabase.co")) {
       shell.openExternal(url);
       return { action: "deny" };
     }
-    return { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true } };
+    return { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, titleBarStyle: "hidden" } };
   });
 
-  // close-to-tray (like Slack), real quit from tray or Cmd+Q
+  /* offline → branded screen; back online → native notification */
+  mainWindow.webContents.on("did-fail-load", (_e, code, desc, _url, isMain) => {
+    if (isMain && code !== 0 && !quitting) {
+      reconnectNotify = true;
+      mainWindow.loadFile("offline.html", { query: { url: APP_URL, reason: String(desc || code) } });
+    }
+  });
+
+  /* close-to-tray (Slack behavior) */
   mainWindow.on("close", (e) => {
     if (!quitting) {
       e.preventDefault();
       mainWindow.hide();
     }
   });
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
+  mainWindow.on("closed", () => (mainWindow = null));
 
   const save = () => saveWindowState();
-  mainWindow.on("resize", save);
-  mainWindow.on("move", save);
-  mainWindow.on("maximize", save);
-  mainWindow.on("unmaximize", save);
+  ["resize", "move", "maximize", "unmaximize"].forEach((ev) => mainWindow.on(ev, save));
+
+  registerShortcuts();
+}
+
+/* ---------------- keyboard shortcuts ---------------- */
+
+function registerShortcuts() {
+  const wc = () => mainWindow.webContents;
+  mainWindow.webContents.on("before-input-event", (e, input) => {
+    if (input.type !== "keyDown") return;
+    const ctrl = input.control || input.meta;
+    const key = input.key.toLowerCase();
+
+    if (ctrl && key === "r") { wc().reload(); e.preventDefault(); }
+    else if (key === "f5") { wc().reload(); e.preventDefault(); }
+    else if (ctrl && (key === "+" || key === "=")) { wc().setZoomLevel(Math.min(wc().getZoomLevel() + 0.5, 5)); e.preventDefault(); }
+    else if (ctrl && key === "-") { wc().setZoomLevel(Math.max(wc().getZoomLevel() - 0.5, -5)); e.preventDefault(); }
+    else if (ctrl && key === "0") { wc().setZoomLevel(0); e.preventDefault(); }
+    else if (key === "f11") { mainWindow.setFullScreen(!mainWindow.isFullScreen()); e.preventDefault(); }
+    else if ((ctrl && input.shift && key === "i") || key === "f12") { wc().toggleDevTools(); e.preventDefault(); }
+    else if (ctrl && key === "q") { quitting = true; app.quit(); }
+  });
+}
+
+/* ---------------- tray ---------------- */
+
+function buildTrayMenu() {
+  const login = app.getLoginItemSettings();
+  return Menu.buildFromTemplate([
+    { label: "Open SheetNative", click: showWindow },
+    { type: "separator" },
+    { label: "Launch at Windows startup", type: "checkbox", checked: login.openAtLogin, click: (item) => {
+      app.setLoginItemSettings({ openAtLogin: item.checked, path: process.execPath });
+    } },
+    { type: "separator" },
+    { label: "Zoom in", click: () => mainWindow?.webContents.setZoomLevel(Math.min(mainWindow.webContents.getZoomLevel() + 0.5, 5)) },
+    { label: "Zoom out", click: () => mainWindow?.webContents.setZoomLevel(Math.max(mainWindow.webContents.getZoomLevel() - 0.5, -5)) },
+    { label: "Reset zoom", click: () => mainWindow?.webContents.setZoomLevel(0) },
+    { type: "separator" },
+    { label: "Check for updates…", click: checkForUpdates },
+    { type: "separator" },
+    { label: "Quit", click: () => { quitting = true; app.quit(); } },
+  ]);
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, "icon", "icon-256.png");
-  const img = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-  tray = new Tray(img);
+  tray = new Tray(trayIcon(16));
   tray.setToolTip(APP_NAME);
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: "Open SheetNative", click: showWindow },
-      { type: "separator" },
-      {
-        label: "Quit",
-        click: () => {
-          quitting = true;
-          app.quit();
-        },
-      },
-    ])
-  );
+  tray.setContextMenu(buildTrayMenu());
   tray.on("double-click", showWindow);
 }
+
+/* ---------------- updates (GitHub releases) ---------------- */
+
+async function checkForUpdates() {
+  try {
+    const res = await fetch(RELEASES_API, { headers: { "User-Agent": "SheetNative-Desktop" } });
+    const json = await res.json();
+    const latest = String(json.tag_name ?? "").replace(/^v/, "");
+    const current = app.getVersion();
+    if (latest && latest !== current) {
+      const { response } = await dialog.showMessageBox({
+        type: "info",
+        title: "Update available",
+        message: `SheetNative ${latest} is available (you have ${current}).`,
+        buttons: ["Open download page", "Later"],
+      });
+      if (response === 0) shell.openExternal(RELEASES_URL);
+    } else {
+      dialog.showMessageBox({ type: "info", title: APP_NAME, message: `You're up to date (v${current}).`, buttons: ["OK"] });
+    }
+  } catch {
+    dialog.showMessageBox({ type: "info", title: APP_NAME, message: "Couldn't check for updates — you may be offline.", buttons: ["OK"] });
+  }
+}
+
+/* ---------------- ipc ---------------- */
+
+ipcMain.on("notify", (_e, { title, body }) => notify(String(title ?? APP_NAME), String(body ?? "")));
+ipcMain.handle("app:version", () => app.getVersion());
+
+/* ---------------- lifecycle ---------------- */
 
 function showWindow() {
   if (!mainWindow) {
@@ -136,7 +244,8 @@ if (!gotLock) {
   app.on("second-instance", showWindow);
 
   app.whenReady().then(() => {
-    // allow camera/mic only for the product origin (voice & vision features)
+    Menu.setApplicationMenu(null);
+
     session.defaultSession.setPermissionRequestHandler((_wc, permission, callback, details) => {
       const ok = details.requestingUrl.startsWith(APP_URL);
       callback(ok && ["media", "notifications", "clipboard-read"].includes(permission));
@@ -151,15 +260,11 @@ if (!gotLock) {
   });
 }
 
-ipcMain.handle("app:version", () => app.getVersion());
-
 app.on("before-quit", () => {
   quitting = true;
   saveWindowState();
 });
 
 app.on("window-all-closed", () => {
-  // keep running in tray (Slack behavior); real exit via tray → Quit
-  if (process.platform === "darwin" && !quitting) return;
   if (quitting) app.quit();
 });

@@ -100,3 +100,23 @@ body {
   animation: var(--animate-shimmer);
   border-radius: 0.5rem;
 }
+
+/* ---------- Desktop app integration (active only inside the Electron shell) ---------- */
+html.desktop [data-drag-region] {
+  -webkit-app-region: drag;
+}
+html.desktop [data-drag-region] a,
+html.desktop [data-drag-region] button,
+html.desktop [data-drag-region] input,
+html.desktop [data-drag-region] select,
+html.desktop [data-drag-region] [role="button"] {
+  -webkit-app-region: no-drag;
+}
+/* clear space for the native window controls (min/max/close) on Windows */
+html.desktop [data-drag-topbar] {
+  padding-right: 9.5rem;
+}
+/* prevent overscroll bounce / pull-to-refresh look in the desktop shell */
+html.desktop body {
+  overscroll-behavior: none;
+}

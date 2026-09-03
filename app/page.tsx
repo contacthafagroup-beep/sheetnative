@@ -55,7 +55,7 @@ export default function Landing() {
       <div className="aurora left-[30%] top-[60%] h-[450px] w-[450px] bg-cyan-500 opacity-20" />
 
       {/* Nav */}
-      <nav className="sticky top-0 z-40 border-b border-white/5 backdrop-blur-xl">
+      <nav data-drag-region className="sticky top-0 z-40 border-b border-white/5 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
