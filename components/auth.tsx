@@ -11,6 +11,7 @@ import {
 } from "@/lib/supabase/client";
 
 const AUTH_EVENT = "sheetnative:auth";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function showAuth() {
   window.dispatchEvent(new CustomEvent(AUTH_EVENT));
@@ -37,11 +38,22 @@ export function AuthModal() {
     setBusy(true);
     setError(null);
     setNotice(null);
+    const cleanEmail = email.trim();
+    if (!EMAIL_RE.test(cleanEmail)) {
+      setError("Please enter a valid email address (e.g. you@company.com).");
+      setBusy(false);
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      setBusy(false);
+      return;
+    }
     try {
       const res =
         mode === "signin"
-          ? await signInWithPassword(email.trim(), password)
-          : await signUpWithPassword(email.trim(), password);
+          ? await signInWithPassword(cleanEmail, password)
+          : await signUpWithPassword(cleanEmail, password);
       if (res.error) {
         setError(res.error.message);
         return;
