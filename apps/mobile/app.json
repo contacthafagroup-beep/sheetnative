@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "SheetNative",
+    "slug": "sheetnative",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "sheetnative",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sheetnative.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Scan barcodes, OCR invoices and attach photos.",
+        "NSLocationWhenInUseUsageDescription": "GPS check-ins, route tracking and delivery proof.",
+        "NFCReaderUsageDescription": "Inventory NFC tagging."
+      }
+    },
+    "android": {
+      "package": "com.sheetnative.app",
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "NFC", "VIBRATE"]
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-location",
+      "expo-notifications"
+    ]
+  }
+}

@@ -1,0 +1,167 @@
+// SheetNative — AI Business Operating System
+// Full domain model for self-hosted PostgreSQL deployments.
+// The hosted build uses the equivalent Supabase schema (see supabase/migrations).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  STARTER
+  GROWTH
+  BUSINESS
+  PRO
+  ENTERPRISE
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  CUSTOMER
+  SUPPLIER
+  CONTRACTOR
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(STARTER)
+  aiCredits Int      @default(5000)
+  createdAt DateTime @default(now())
+
+  members   Member[]
+  workbooks Workbook[]
+  employees AiEmployee[]
+  auditLogs AuditLog[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  mfa       Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  memberships Member[]
+  workbooks   Workbook[]
+}
+
+model Member {
+  id   String  @id @default(uuid())
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId  String
+  userId String
+  role OrgRole @default(EMPLOYEE)
+
+  @@unique([orgId, userId])
+}
+
+model Workbook {
+  id        String   @id @default(uuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner     User     @relation(fields: [userId], references: [id])
+  orgId     String
+  userId    String
+  fileName  String
+  status    String   @default("migrated")
+  analysis  Json
+  createdAt DateTime @default(now())
+
+  entities Entity[]
+  automations Automation[]
+  approvals Approval[]
+  chat      ChatMessage[]
+}
+
+model Entity {
+  id         String @id @default(uuid())
+  workbook   Workbook @relation(fields: [workbookId], references: [id], onDelete: Cascade)
+  workbookId String
+  name       String
+  sheet      String
+  role       String
+  columns    Json
+  createSql  String
+
+  rows EntityRow[]
+
+  @@unique([workbookId, name])
+}
+
+model EntityRow {
+  id       String @id @default(uuid())
+  entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  entityId String
+  data     Json
+
+  @@index([entityId])
+}
+
+model AiEmployee {
+  id           String   @id @default(uuid())
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  name         String
+  role         String
+  instructions String
+  createdAt    DateTime @default(now())
+}
+
+model Automation {
+  id        String   @id @default(uuid())
+  workbook  Workbook? @relation(fields: [workbookId], references: [id])
+  workbookId String?
+  name      String
+  rule      Json
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Approval {
+  id        String         @id @default(uuid())
+  workbook  Workbook?      @relation(fields: [workbookId], references: [id])
+  workbookId String?
+  title     String
+  kind      String         @default("general")
+  amount    Decimal?       @db.Decimal(14, 2)
+  status    ApprovalStatus @default(PENDING)
+  chain     Json?
+  createdAt DateTime       @default(now())
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  workbook   Workbook? @relation(fields: [workbookId], references: [id])
+  workbookId String?
+  role       String
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  actor     String
+  action    String
+  target    String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, createdAt])
+}

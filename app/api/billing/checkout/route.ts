@@ -1,0 +1,82 @@
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
+import { getPlan, annualMonthly } from "@/lib/billing";
+import { createClient } from "@supabase/supabase-js";
+
+export const dynamic = "force-dynamic";
+
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://supabase-api-prod.verdent.ai/p/p4fae8c46f211b6becca7";
+const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoyMTA0MDQyMDU5LCJpYXQiOjE3ODg0MjI4NTksImlzcyI6InN1cGFiYXNlIiwicHJvamVjdF9yZWYiOiJwNGZhZThjNDZmMjExYjZiZWNjYTciLCJyb2xlIjoiYW5vbiJ9.gLMKxcYueFTDyJHIwEL35WB1hXYWpn2V8GeGOwZd9MY";
+
+function siteUrl(req: Request): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.VERCEL_URL ??
+    new URL(req.url).origin
+  );
+}
+
+export async function POST(req: Request) {
+  const secret = process.env.STRIPE_SECRET_KEY;
+  if (!secret)
+    return NextResponse.json(
+      { error: "Stripe is not configured. Set STRIPE_SECRET_KEY in your environment." },
+      { status: 501 }
+    );
+
+  const authHeader = req.headers.get("authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (!token)
+    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData.user)
+    return NextResponse.json({ error: "Invalid session." }, { status: 401 });
+  const user = userData.user;
+
+  let body: { plan?: string; interval?: "monthly" | "annual" };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid body." }, { status: 400 });
+  }
+
+  const plan = getPlan(body.plan ?? "");
+  if (!plan)
+    return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
+  const annual = body.interval === "annual";
+  const unitAmount = (annual ? annualMonthly(plan.monthly) : plan.monthly) * 100;
+
+  const stripe = new Stripe(secret);
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer_email: user.email,
+    client_reference_id: user.id,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: unitAmount,
+          recurring: { interval: annual ? "year" : "month" },
+          product_data: {
+            name: `SheetNative ${plan.name} (${annual ? "annual" : "monthly"})`,
+            description: `${plan.aiCredits} AI credits/mo · ${plan.seats}`,
+          },
+        },
+      },
+    ],
+    metadata: { plan: plan.id, interval: annual ? "annual" : "monthly", user_id: user.id },
+    subscription_data: { metadata: { plan: plan.id, user_id: user.id } },
+    success_url: `${siteUrl(req)}/app/billing?checkout=success`,
+    cancel_url: `${siteUrl(req)}/app/billing?checkout=cancelled`,
+  });
+
+  return NextResponse.json({ url: session.url });
+}

@@ -1,0 +1,7 @@
+Date,Invoice,Customer,Region,Amount,Status,Qty
+2026-01-05,INV-001,Acme Corp,North,12500.50,paid,10
+2026-01-12,INV-002,Globex Ltd,West,8300,unpaid,4
+2026-02-03,INV-003,Initech,South,15400.75,paid,12
+2026-02-18,INV-004,Acme Corp,North,2100,pending,2
+2026-03-01,INV-005,Umbrella Co,East,9900.25,paid,7
+2026-03-14,INV-006,Globex Ltd,West,640,unpaid,1

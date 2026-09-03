@@ -1,0 +1,15 @@
+{
+  "name": "sheetnative-db",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PostgreSQL schema for self-hosted SheetNative deployments (Prisma). The Verdent-hosted build uses the managed Supabase schema in supabase/migrations.",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "push": "prisma db push",
+    "studio": "prisma studio"
+  },
+  "devDependencies": {
+    "prisma": "^6.2.0"
+  }
+}
