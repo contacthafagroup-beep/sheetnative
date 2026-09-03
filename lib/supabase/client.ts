@@ -1,10 +1,17 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vbayhnlkcoqgssgapaay.supabase.co";
+const envOr = (value: string | undefined, fallback: string) =>
+  value && value.trim() ? value.trim() : fallback;
 
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "sb_publishable_jBoN1Vj0SoRRRnPEbPnn4A_1b0pYPWC";
+const SUPABASE_URL = envOr(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  "https://vbayhnlkcoqgssgapaay.supabase.co"
+);
+
+const SUPABASE_ANON_KEY = envOr(
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  "sb_publishable_jBoN1Vj0SoRRRnPEbPnn4A_1b0pYPWC"
+);
 
 let client: SupabaseClient | null = null;
 
