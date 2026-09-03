@@ -59,20 +59,24 @@ async function askOpenAI(key: string, question: string, context: string): Promis
 
 async function askGemini(key: string, question: string, context: string): Promise<string> {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: [{ role: "user", parts: [{ text: `DATA:\n${context}\n\nQUESTION: ${question}` }] }],
-        generationConfig: { maxOutputTokens: 400, temperature: 0.2 },
+        generationConfig: { maxOutputTokens: 1200, temperature: 0.2 },
       }),
     }
   );
   if (!res.ok) throw new Error(`Gemini ${res.status}`);
   const json = await res.json();
-  return json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return (
+    json.candidates?.[0]?.content?.parts
+      ?.map((p: { text?: string }) => p.text ?? "")
+      .join("") ?? ""
+  );
 }
 
 export async function POST(req: Request) {
@@ -93,11 +97,18 @@ export async function POST(req: Request) {
   const openai = envOr(process.env.OPENAI_API_KEY);
   const gemini = envOr(process.env.GEMINI_API_KEY);
 
-  if (openai || gemini) {
+  if (openai) {
     try {
-      const answer = openai
-        ? await askOpenAI(openai, question, context)
-        : await askGemini(gemini!, question, context);
+      const answer = await askOpenAI(openai, question, context);
+      if (answer.trim())
+        return NextResponse.json({ answer: answer.trim(), source: "llm" });
+    } catch {
+      // try Gemini below
+    }
+  }
+  if (gemini) {
+    try {
+      const answer = await askGemini(gemini, question, context);
       if (answer.trim())
         return NextResponse.json({ answer: answer.trim(), source: "llm" });
     } catch {
