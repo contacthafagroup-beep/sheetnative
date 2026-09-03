@@ -33,10 +33,23 @@ export function siteUrl(): string {
 }
 
 export async function signInWithProvider(provider: "google" | "github" | "azure") {
-  return getSupabase().auth.signInWithOAuth({
+  const isDesktop =
+    typeof window !== "undefined" &&
+    !!(window as unknown as { sheetnative?: { isDesktop?: boolean } }).sheetnative?.isDesktop;
+
+  const res = await getSupabase().auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${siteUrl()}/app` },
+    options: {
+      redirectTo: `${siteUrl()}/app`,
+      // desktop shell: open a sign-in popup, keep the app window intact
+      skipBrowserRedirect: isDesktop,
+    },
   });
+
+  if (isDesktop && res.data?.url) {
+    window.open(res.data.url, "sheetnative-signin", "width=480,height=720,menubar=no");
+  }
+  return res;
 }
 
 export async function signInWithPassword(email: string, password: string) {

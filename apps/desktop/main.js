@@ -112,19 +112,13 @@ function createWindow() {
       });
       return;
     }
-    if (!url.startsWith(APP_URL) && !url.includes("supabase.co")) {
-      e.preventDefault();
-      shell.openExternal(url);
-    }
+    if (isAppUrl(url)) return; // normal in-app navigation
+    e.preventDefault();
+    if (isAuthUrl(url)) openAuthPopup(url); // legacy full-redirect OAuth → popup
+    else shell.openExternal(url);
   });
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(APP_URL) && !url.includes("supabase.co")) {
-      shell.openExternal(url);
-      return { action: "deny" };
-    }
-    return { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, titleBarStyle: "hidden" } };
-  });
+  /* window-open handling is centralized in the global web-contents-created handler */
 
   /* offline → branded screen; back online → native notification */
   mainWindow.webContents.on("did-fail-load", (_e, code, desc, _url, isMain) => {
@@ -225,6 +219,69 @@ async function checkForUpdates() {
 
 ipcMain.on("notify", (_e, { title, body }) => notify(String(title ?? APP_NAME), String(body ?? "")));
 ipcMain.handle("app:version", () => app.getVersion());
+
+/* ---------------- auth popups & window management ---------------- */
+
+const AUTH_HOSTS = ["supabase.co", "google.com", "github.com", "apple.com", "microsoftonline.com", "login.live.com"];
+const isAuthUrl = (url) => AUTH_HOSTS.some((h) => url.includes(h));
+const isAppUrl = (url) => url.startsWith(APP_URL);
+
+function trackAuthPopup(popupWindow) {
+  const wc = popupWindow.webContents;
+  const finish = (fullUrl) => {
+    if (!isAppUrl(fullUrl)) return;
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(fullUrl);
+    try { popupWindow.destroy(); } catch {}
+  };
+  wc.on("will-redirect", (e, url) => finish(url));
+  wc.on("did-navigate", (_e, url) => finish(url));
+  wc.on("did-finish-load", () => {
+    wc.executeJavaScript("location.href", true).then((href) => finish(href)).catch(() => {});
+  });
+}
+
+function openAuthPopup(url) {
+  const win = new BrowserWindow({
+    width: 480,
+    height: 720,
+    parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+    autoHideMenuBar: true,
+    backgroundColor: "#ffffff",
+    title: "Sign in",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  win.loadURL(url);
+  trackAuthPopup(win);
+  return win;
+}
+
+// safety: Alt+Left / Alt+Right go back/forward in every window, Escape closes popups
+app.on("web-contents-created", (_e, wc) => {
+  wc.on("before-input-event", (e, input) => {
+    if (input.type !== "keyDown") return;
+    if (input.alt && input.key === "ArrowLeft" && wc.navigationHistory.canGoBack()) {
+      wc.goBack();
+      e.preventDefault();
+    } else if (input.alt && input.key === "ArrowRight" && wc.navigationHistory.canGoForward()) {
+      wc.goForward();
+      e.preventDefault();
+    }
+  });
+
+  wc.setWindowOpenHandler(({ url }) => {
+    // sign-in flows (Google/GitHub consent etc.) open inside a small popup
+    if (isAuthUrl(url) || isAppUrl(url)) {
+      openAuthPopup(url);
+      return { action: "deny" };
+    }
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+});
 
 /* ---------------- lifecycle ---------------- */
 
