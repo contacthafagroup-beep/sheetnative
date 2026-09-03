@@ -1,0 +1,42 @@
+appId: com.sheetnative.desktop
+productName: SheetNative
+copyright: SheetNative
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - main.js
+  - preload.js
+  - offline.html
+  - package.json
+  - icon/**/*
+
+extraMetadata:
+  main: main.js
+
+win:
+  icon: icon/icon-256.png
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: SheetNative
+
+mac:
+  category: public.app-category.business
+  icon: icon/icon-256.png
+  target: dmg
+
+linux:
+  category: Office
+  icon: icon/icon-256.png
+  target: AppImage
+  maintainer: SheetNative

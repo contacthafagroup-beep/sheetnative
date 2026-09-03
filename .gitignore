@@ -7,3 +7,6 @@ dist
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+# apps 
+apps/shared/.tool/node_modules/ 
+apps/desktop/dist/ 

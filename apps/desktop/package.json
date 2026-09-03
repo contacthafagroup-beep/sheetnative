@@ -1,13 +1,19 @@
 {
   "name": "sheetnative-desktop",
   "version": "1.0.0",
+  "description": "SheetNative — AI Business Operating System (desktop app)",
   "private": true,
+  "main": "main.js",
+  "author": "SheetNative",
+  "homepage": "https://sheetnative.vercel.app",
   "scripts": {
-    "tauri": "tauri",
-    "dev": "tauri dev",
-    "build": "tauri build"
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "typecheck": "node -e \"1\""
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.1.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
   }
 }

@@ -5,24 +5,44 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "sheetnative",
+    "icon": "../shared/icon-1024.png",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#07090f",
+    "splash": {
+      "image": "../shared/splash-1284.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#07090f"
+    },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true,
       "bundleIdentifier": "com.sheetnative.app",
+      "buildNumber": "1",
+      "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Scan barcodes, OCR invoices and attach photos.",
-        "NSLocationWhenInUseUsageDescription": "GPS check-ins, route tracking and delivery proof.",
-        "NFCReaderUsageDescription": "Inventory NFC tagging."
+        "NSCameraUsageDescription": "SheetNative uses the camera to scan receipts, invoices and barcodes into your business apps.",
+        "NSPhotoLibraryUsageDescription": "SheetNative uses your photo library to attach images to records.",
+        "NSLocationWhenInUseUsageDescription": "GPS check-ins, route tracking and delivery proof."
       }
     },
     "android": {
       "package": "com.sheetnative.app",
-      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "NFC", "VIBRATE"]
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "../shared/icon-1024.png",
+        "backgroundColor": "#07090f"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
-    "plugins": [
-      "expo-camera",
-      "expo-location",
-      "expo-notifications"
-    ]
+    "plugins": ["expo-notifications"],
+    "extra": {
+      "eas": { "projectId": "" }
+    }
   }
 }
