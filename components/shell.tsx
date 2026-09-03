@@ -12,6 +12,7 @@ import { getSupabase } from "@/lib/supabase/client";
 import { isAdminEmail } from "@/lib/admin";
 import { showAuth } from "@/components/auth";
 import { answerQuestion, type ChatMessage } from "@/lib/nlq";
+import { buildReportHtml } from "@/lib/report";
 import type { Analysis } from "@/lib/types";
 import { fetchWorkbooks, fetchAllRows, type EntityRows } from "@/lib/store";
 
@@ -150,6 +151,7 @@ function AiChatDrawer({ onClose }: { onClose: () => void }) {
   const [thinking, setThinking] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [rows, setRows] = useState<EntityRows>({});
+  const [aiSource, setAiSource] = useState<"llm" | "local">("local");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -168,6 +170,38 @@ function AiChatDrawer({ onClose }: { onClose: () => void }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
 
+  const openReport = useCallback(() => {
+    if (!analysis) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(buildReportHtml(analysis, rows));
+    w.document.close();
+  }, [analysis, rows]);
+
+  const buildLlmContext = useCallback(() => {
+    if (!analysis) return [];
+    return analysis.entities.slice(0, 15).map((e) => {
+      const data = rows[e.name] ?? [];
+      const numeric = e.columns.filter((c) => ["number", "currency", "integer"].includes(c.type));
+      const totals: Record<string, number> = {};
+      for (const c of numeric.slice(0, 4)) {
+        totals[c.name] = data.reduce((a, r) => {
+          const v = r[c.name];
+          const n = typeof v === "number" ? v : Number(String(v ?? "").replace(/[$,]/g, ""));
+          return a + (Number.isFinite(n) ? n : 0);
+        }, 0);
+      }
+      return {
+        name: e.name,
+        sheet: e.sheet,
+        rowCount: data.length || e.rowCount,
+        columns: e.columns.map((c) => ({ name: c.name, type: c.type })),
+        totals,
+        sample: data.slice(0, 10),
+      };
+    });
+  }, [analysis, rows]);
+
   const send = useCallback(async () => {
     const q = input.trim();
     if (!q || thinking) return;
@@ -175,18 +209,36 @@ function AiChatDrawer({ onClose }: { onClose: () => void }) {
     setMessages((m) => [...m, { role: "user", content: q, ts: Date.now() }]);
     setThinking(true);
     try {
-      await new Promise((r) => setTimeout(r, 450));
-      const content = analysis
-        ? answerQuestion(q, analysis, rows)
-        : "I don't have a workbook yet. Upload one under Workbooks and I'll learn your business from it — then ask me anything.";
-      const action = /purchase order|report|invoice/i.test(q) && analysis
-        ? { label: /purchase order/i.test(q) ? "Draft purchase order" : "Build report" }
-        : null;
+      let content: string;
+      let action: { label: string } | null = null;
+      let usedLlm = false;
+      if (analysis) {
+        try {
+          const res = await fetch("/api/ai/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: q, entities: buildLlmContext() }),
+          });
+          const json = await res.json();
+          if (json.answer) {
+            content = json.answer;
+            usedLlm = true;
+          } else {
+            content = answerQuestion(q, analysis, rows);
+          }
+        } catch {
+          content = answerQuestion(q, analysis, rows);
+        }
+        setAiSource(usedLlm ? "llm" : "local");
+      } else {
+        content = "I don't have a workbook yet. Upload one under Workbooks and I'll learn your business from it — then ask me anything.";
+      }
+      if (analysis && /report/i.test(q)) action = { label: "Build report" };
       setMessages((m) => [...m, { role: "assistant", content, ts: Date.now(), action }]);
     } finally {
       setThinking(false);
     }
-  }, [input, thinking, analysis, rows]);
+  }, [input, thinking, analysis, rows, buildLlmContext]);
 
   return (
     <div className="absolute inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-fade" onClick={onClose}>
@@ -198,7 +250,9 @@ function AiChatDrawer({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-2.5">
             <Sparkles className="h-4 w-4 text-indigo-400" />
             <span className="text-sm font-semibold">Business AI</span>
-            <Badge tone="brand">GPT-class</Badge>
+            <Badge tone={aiSource === "llm" ? "good" : "brand"}>
+              {aiSource === "llm" ? "GPT-class" : "Local engine"}
+            </Badge>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-200">
             <X className="h-4 w-4" />
@@ -217,7 +271,10 @@ function AiChatDrawer({ onClose }: { onClose: () => void }) {
               >
                 {m.content}
                 {m.action && (
-                  <button className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500/20 px-3 py-2 text-xs font-medium text-indigo-200 hover:bg-indigo-500/30">
+                  <button
+                    onClick={openReport}
+                    className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500/20 px-3 py-2 text-xs font-medium text-indigo-200 hover:bg-indigo-500/30"
+                  >
                     <Sparkles className="h-3.5 w-3.5" /> {m.action.label}
                   </button>
                 )}

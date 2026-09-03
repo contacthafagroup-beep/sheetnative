@@ -28,6 +28,7 @@ export default function GeneratedAppPage() {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [rowsLoading, setRowsLoading] = useState(false);
   const [view, setView] = useState<ViewMode>("table");
+  const [permsOpen, setPermsOpen] = useState(false);
 
   useEffect(() => {
     fetchWorkbooks()
@@ -91,10 +92,16 @@ export default function GeneratedAppPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm"><Shield className="h-3.5 w-3.5" /> Permissions</Button>
-          <Button variant="outline" size="sm"><FileDown className="h-3.5 w-3.5" /> Export</Button>
+          <Button variant="outline" size="sm" onClick={() => setPermsOpen(true)}>
+            <Shield className="h-3.5 w-3.5" /> Permissions
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => entity && exportCsv(entity, rows)} disabled={!entity}>
+            <FileDown className="h-3.5 w-3.5" /> Export
+          </Button>
         </div>
       </div>
+
+      {permsOpen && <PermissionsModal analysis={analysis} onClose={() => setPermsOpen(false)} />}
 
       {/* Entity nav */}
       <div className="flex flex-wrap gap-1.5">
@@ -454,4 +461,111 @@ async function saveRow(entity: string, data: Record<string, unknown>) {
   if (!u.user) { showAuth(); throw new Error("Not signed in"); }
   const { error } = await sb.from("entity_rows").insert({ user_id: u.user.id, entity, data });
   if (error) throw new Error(error.message);
+}
+
+function exportCsv(entity: EntitySpec, rows: Record<string, unknown>[]) {
+  const cols = entity.columns;
+  const cell = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv =
+    cols.map((c) => cell(c.name)).join(",") +
+    "\n" +
+    rows.map((r) => cols.map((c) => cell(r[c.name])).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${entity.name}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function PermissionsModal({
+  analysis,
+  onClose,
+}: {
+  analysis: Analysis;
+  onClose: () => void;
+}) {
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSupabase()
+      .auth.getUser()
+      .then(({ data }) => setOwnerEmail(data.user?.email ?? null))
+      .catch(() => {});
+  }, []);
+
+  const totalRows = analysis.entities.reduce((a, e) => a + (e.rowCount ?? 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade" onClick={onClose}>
+      <div className="glass-strong w-full max-w-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <Shield className="h-4 w-4 text-indigo-400" /> App permissions &amp; security
+          </h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Owner</div>
+            <div className="mt-0.5 font-medium text-slate-200">{ownerEmail ?? "…"}</div>
+            <div className="mt-1 text-xs text-emerald-300">Full control — this app and all its data belong to your account.</div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+            <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">Access matrix</div>
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-slate-500">
+                  <th className="pb-1.5 font-medium">Role</th>
+                  <th className="pb-1.5 font-medium">View data</th>
+                  <th className="pb-1.5 font-medium">Edit data</th>
+                  <th className="pb-1.5 font-medium">Manage app</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Owner (you)", true, true, true],
+                  ["Other accounts", false, false, false],
+                ].map(([role, v, e, m]) => (
+                  <tr key={role as string} className="border-t border-white/5">
+                    <td className="py-2 text-slate-300">{role}</td>
+                    <td className="py-2"><AccessDot ok={v as boolean} /></td>
+                    <td className="py-2"><AccessDot ok={e as boolean} /></td>
+                    <td className="py-2"><AccessDot ok={m as boolean} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Enforced protection</div>
+            <ul className="mt-1.5 space-y-1 text-xs text-slate-400">
+              <li>· PostgreSQL row-level security: every query is scoped to your account at the database level — other accounts cannot read or modify these {totalRows.toLocaleString()} rows even with direct API access.</li>
+              <li>· {analysis.entities.length} entities protected: {analysis.entities.map((e) => e.name).join(", ")}.</li>
+              <li>· Team roles (Admin / Manager / Employee / Customer) activate automatically when team workspaces launch — the data model is already role-ready.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <Button variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccessDot({ ok }: { ok: boolean }) {
+  return ok ? (
+    <Check className="h-3.5 w-3.5 text-emerald-400" />
+  ) : (
+    <X className="h-3.5 w-3.5 text-slate-600" />
+  );
 }
