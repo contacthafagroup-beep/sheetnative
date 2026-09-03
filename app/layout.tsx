@@ -2,9 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { AuthModal } from "@/components/auth";
 import "./globals.css";
 
+const siteUrl = (value: string | undefined, fallback: string) =>
+  value && value.trim() ? value.trim() : fallback;
+
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://sheetnative.vercel.app"
+    siteUrl(process.env.NEXT_PUBLIC_SITE_URL, "https://sheetnative.vercel.app")
   ),
   title: "SheetNative — AI Business Operating System",
   description:
