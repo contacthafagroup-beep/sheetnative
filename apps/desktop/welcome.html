@@ -2,73 +2,142 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>SheetNative — Welcome</title>
+<title>SheetNative Setup</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
+  :root { --bg:#0b0e14; --panel:#0f1320; --line:#1c2436; --txt:#e2e8f0; --dim:#7a8699; --accent:#6366f1; }
+  html, body { height:100%; }
   body {
-    height:100vh; overflow:hidden; background:#07090f; color:#f8fafc;
-    font-family:'Segoe UI Variable','Segoe UI',-apple-system,sans-serif;
-    display:flex; flex-direction:column;
-    -webkit-app-region: drag; user-select:none;
+    background:var(--bg); color:var(--txt); overflow:hidden;
+    font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif; font-size:13px;
+    display:flex; flex-direction:column; user-select:none;
   }
-  .bg { position:fixed; inset:0; z-index:0; }
-  .glow1 { position:absolute; width:560px; height:560px; border-radius:50%; filter:blur(140px);
-           background:rgba(99,102,241,.22); top:-160px; right:-120px; }
-  .glow2 { position:absolute; width:480px; height:480px; border-radius:50%; filter:blur(150px);
-           background:rgba(168,85,247,.16); bottom:-160px; left:-100px; }
-  .grid { position:absolute; inset:0; opacity:.05;
-    background-image:linear-gradient(#94a3b8 1px,transparent 1px),linear-gradient(90deg,#94a3b8 1px,transparent 1px);
-    background-size:44px 44px; mask-image:radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); }
-  main { position:relative; z-index:1; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; }
-  .logo { width:92px; height:92px; border-radius:24px; background:linear-gradient(135deg,#6366f1,#a855f7);
-          display:flex; align-items:center; justify-content:center; font-size:48px;
-          box-shadow:0 24px 70px -18px rgba(99,102,241,.65); margin-bottom:30px;
-          animation:pop .6s cubic-bezier(.2,1.4,.4,1); }
-  @keyframes pop { from { transform:scale(.7); opacity:0 } to { transform:scale(1); opacity:1 } }
-  h1 { font-size:40px; font-weight:700; letter-spacing:-.8px; }
-  h1 span { background:linear-gradient(90deg,#a5b4fc,#c4b5fd); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .sub { margin-top:12px; color:#8b98a9; font-size:15px; max-width:520px; text-align:center; line-height:1.6; }
-  .launch {
-    -webkit-app-region:no-drag; margin-top:38px; border:0; cursor:pointer;
-    background:linear-gradient(90deg,#6366f1,#8b5cf6); color:#fff;
-    font-size:17px; font-weight:600; padding:15px 64px; border-radius:14px;
-    box-shadow:0 16px 44px -12px rgba(99,102,241,.7); transition:.18s;
+
+  /* title strip — drag region synced with native window controls */
+  .titlestrip {
+    -webkit-app-region: drag; height:38px; flex:0 0 38px;
+    display:flex; align-items:center; padding:0 14px; gap:8px;
+    border-bottom:1px solid var(--line); background:var(--panel);
   }
-  .launch:hover { filter:brightness(1.14); transform:translateY(-1px); }
-  .launch:active { transform:translateY(0); }
-  .remember { -webkit-app-region:no-drag; margin-top:18px; display:flex; align-items:center; gap:8px;
-              color:#64748b; font-size:12.5px; cursor:pointer; }
-  .feat { position:relative; z-index:1; display:flex; gap:34px; margin-top:52px; }
-  .f { display:flex; align-items:center; gap:9px; color:#64748b; font-size:12.5px; }
-  .f b { color:#a5b4fc; font-weight:600; }
-  .foot { position:relative; z-index:1; text-align:center; padding:22px; color:#3b4757; font-size:11.5px; }
+  .titlestrip .mark { color:var(--accent); font-size:13px; }
+  .titlestrip .t { font-size:12px; color:var(--dim); }
+  .titlestrip .spacer { flex:1; }
+  /* room for native min/max/close overlay */
+  .titlestrip { padding-right:150px; }
+
+  /* main split */
+  .split { flex:1; display:flex; min-height:0; }
+
+  /* left: get started */
+  .left { flex:1.15; padding:52px 56px; display:flex; flex-direction:column; }
+  .kicker { color:var(--accent); font-size:11px; font-weight:600; letter-spacing:1.6px; text-transform:uppercase; }
+  h1 { font-size:30px; font-weight:600; letter-spacing:-.4px; margin:10px 0 8px; }
+  .lead { color:var(--dim); font-size:13.5px; line-height:1.65; max-width:440px; }
+  .steps { margin:30px 0 0; display:flex; flex-direction:column; gap:13px; }
+  .step { display:flex; gap:11px; align-items:flex-start; color:var(--dim); font-size:12.5px; line-height:1.5; }
+  .step .n {
+    flex:0 0 20px; height:20px; border-radius:50%; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:10.5px; color:var(--accent); margin-top:1px;
+  }
+  .step b { color:var(--txt); font-weight:600; }
+  .actions { margin-top:auto; display:flex; align-items:center; gap:14px; padding-top:30px; }
+  .go {
+    -webkit-app-region:no-drag; cursor:pointer; border:0;
+    background:var(--accent); color:#fff; font:600 13.5px 'Segoe UI',sans-serif;
+    padding:11px 34px; border-radius:8px; transition:filter .12s;
+  }
+  .go:hover { filter:brightness(1.13); }
+  .hint { color:#4d5a6e; font-size:11.5px; }
+  kbd { border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:1px 5px; font-size:10.5px; color:var(--dim); background:var(--panel); }
+
+  /* right: preferences pane */
+  .right {
+    flex:0 0 340px; background:var(--panel); border-left:1px solid var(--line);
+    padding:40px 30px; display:flex; flex-direction:column; gap:4px;
+  }
+  .right h2 { font-size:11px; font-weight:600; letter-spacing:1.4px; text-transform:uppercase; color:var(--dim); margin-bottom:16px; }
+  .opt {
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:13px 0; border-bottom:1px solid var(--line);
+  }
+  .opt:last-of-type { border-bottom:0; }
+  .opt .lbl { font-size:13px; color:var(--txt); }
+  .opt .sub { font-size:11px; color:var(--dim); margin-top:3px; line-height:1.45; }
+  /* switch */
+  .sw { -webkit-app-region:no-drag; position:relative; flex:0 0 38px; height:21px; cursor:pointer; }
+  .sw input { display:none; }
+  .sw i { position:absolute; inset:0; border-radius:11px; background:#242e44; transition:.15s; }
+  .sw i::after { content:""; position:absolute; top:3px; left:3px; width:15px; height:15px; border-radius:50%; background:#8b98a9; transition:.15s; }
+  .sw input:checked + i { background:var(--accent); }
+  .sw input:checked + i::after { left:20px; background:#fff; }
+
+  .foot {
+    flex:0 0 auto; display:flex; justify-content:space-between; align-items:center;
+    padding:10px 16px; border-top:1px solid var(--line); background:var(--panel);
+    color:#4d5a6e; font-size:11px;
+  }
+  .foot a { color:var(--dim); text-decoration:none; -webkit-app-region:no-drag; cursor:pointer; }
+  .foot a:hover { color:var(--txt); }
 </style>
 </head>
 <body>
-  <div class="bg"><div class="glow1"></div><div class="glow2"></div><div class="grid"></div></div>
-  <main>
-    <div class="logo">✦</div>
-    <h1>SheetNative <span>Desktop</span></h1>
-    <p class="sub">Your AI business operating system — as a native application.<br/>
-    Upload Excel, get software. Everything stays in sync with your workspace.</p>
-    <button class="launch" onclick="launch(false)">Launch SheetNative</button>
-    <label class="remember"><input type="checkbox" id="remember" /> Don't show this welcome screen again</label>
-    <div class="feat">
-      <div class="f"><b>✦</b> Offline-aware</div>
-      <div class="f"><b>⇩</b> Drag &amp; drop workbooks</div>
-      <div class="f"><b>◔</b> System tray</div>
-      <div class="f"><b>⌘</b> Full shortcuts</div>
+  <div class="titlestrip">
+    <span class="mark">✦</span><span class="t">SheetNative — First-time setup</span>
+    <span class="spacer"></span>
+  </div>
+
+  <div class="split">
+    <div class="left">
+      <div class="kicker">Desktop</div>
+      <h1>Welcome to SheetNative</h1>
+      <p class="lead">Your business operating system, installed natively. It connects to your workspace at sheetnative.vercel.app — sign in once and everything stays in sync.</p>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><span><b>Launch</b> the workspace and sign in with email, Google or GitHub.</span></div>
+        <div class="step"><span class="n">2</span><span><b>Upload a workbook</b> — drag an .xlsx straight from Explorer onto the window.</span></div>
+        <div class="step"><span class="n">3</span><span><b>Work from the tray</b> — closing the window keeps SheetNative running in your system tray.</span></div>
+      </div>
+      <div class="actions">
+        <button class="go" id="go">Get Started</button>
+        <span class="hint">or press <kbd>Enter</kbd></span>
+      </div>
     </div>
-  </main>
-  <div class="foot">SheetNative Desktop <span id="ver"></span> · sheetnative.vercel.app</div>
+
+    <div class="right">
+      <h2>Preferences</h2>
+      <div class="opt">
+        <div><div class="lbl">Launch at Windows startup</div><div class="sub">Start SheetNative in the tray when you sign in.</div></div>
+        <label class="sw"><input type="checkbox" id="startup" /><i></i></label>
+      </div>
+      <div class="opt">
+        <div><div class="lbl">Show this setup again</div><div class="sub">Display this screen on the next launch.</div></div>
+        <label class="sw"><input type="checkbox" id="again" /><i></i></label>
+      </div>
+      <div class="opt">
+        <div><div class="lbl">Close button minimizes to tray</div><div class="sub">Recommended — keeps sync and notifications alive. Changing this requires reinstall.</div></div>
+        <label class="sw"><input type="checkbox" id="tray" checked disabled /><i></i></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>SheetNative Desktop <span id="ver"></span></span>
+    <a href="https://sheetnative.vercel.app">sheetnative.vercel.app</a>
+  </div>
+
   <script>
-    document.getElementById("ver").textContent = new URLSearchParams(location.search).get("v") || "";
-    function launch(remember) {
-      const r = remember || document.getElementById("remember").checked;
-      location.href = "sheetnative://launch" + (r ? "?remember=1" : "");
+    const q = new URLSearchParams(location.search);
+    document.getElementById("ver").textContent = "v" + (q.get("v") || "1.0.0");
+    document.getElementById("startup").checked = q.get("startup") === "1";
+
+    function start() {
+      const p = new URLSearchParams({
+        remember: document.getElementById("again").checked ? "0" : "1",
+        startup: document.getElementById("startup").checked ? "1" : "0",
+      });
+      location.href = "sheetnative://launch?" + p.toString();
     }
-    // Enter launches
-    addEventListener("keydown", (e) => { if (e.key === "Enter") launch(false); });
+    document.getElementById("go").onclick = start;
+    addEventListener("keydown", (e) => { if (e.key === "Enter") start(); });
   </script>
 </body>
 </html>

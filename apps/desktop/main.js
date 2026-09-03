@@ -90,12 +90,14 @@ function createWindow() {
 
   if (prev.maximized) mainWindow.maximize();
 
-  // welcome screen (skippable) → then the app
+  // first-run setup screen (skippable) → then the app
   if (prev.skipWelcome) mainWindow.loadURL(APP_URL);
   else
-    mainWindow.loadFile("welcome.html", {
-      query: { v: app.getVersion() },
-    }).catch(() => mainWindow.loadURL(APP_URL));
+    mainWindow
+      .loadFile("welcome.html", {
+        query: { v: app.getVersion(), startup: app.getLoginItemSettings().openAtLogin ? "1" : "0" },
+      })
+      .catch(() => mainWindow.loadURL(APP_URL));
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
 
@@ -115,11 +117,13 @@ function createWindow() {
 
   /* navigation guard: welcome actions, file drops, external links, in-app nav */
   mainWindow.webContents.on("will-navigate", (e, url) => {
-    // welcome screen actions
+    // first-run setup actions: sheetnative://launch?remember=1&startup=1
     if (url.startsWith("sheetnative://")) {
       e.preventDefault();
-      const remember = url.includes("remember=1");
-      if (remember) saveWindowState({ skipWelcome: true });
+      const q = new URLSearchParams(url.split("?")[1] ?? "");
+      if (q.get("remember") === "1") saveWindowState({ skipWelcome: true });
+      if (process.platform === "win32")
+        app.setLoginItemSettings({ openAtLogin: q.get("startup") === "1", path: process.execPath });
       mainWindow.loadURL(APP_URL);
       return;
     }
