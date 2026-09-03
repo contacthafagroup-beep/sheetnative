@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>SheetNative — Welcome</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    height:100vh; overflow:hidden; background:#07090f; color:#f8fafc;
+    font-family:'Segoe UI Variable','Segoe UI',-apple-system,sans-serif;
+    display:flex; flex-direction:column;
+    -webkit-app-region: drag; user-select:none;
+  }
+  .bg { position:fixed; inset:0; z-index:0; }
+  .glow1 { position:absolute; width:560px; height:560px; border-radius:50%; filter:blur(140px);
+           background:rgba(99,102,241,.22); top:-160px; right:-120px; }
+  .glow2 { position:absolute; width:480px; height:480px; border-radius:50%; filter:blur(150px);
+           background:rgba(168,85,247,.16); bottom:-160px; left:-100px; }
+  .grid { position:absolute; inset:0; opacity:.05;
+    background-image:linear-gradient(#94a3b8 1px,transparent 1px),linear-gradient(90deg,#94a3b8 1px,transparent 1px);
+    background-size:44px 44px; mask-image:radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); }
+  main { position:relative; z-index:1; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; }
+  .logo { width:92px; height:92px; border-radius:24px; background:linear-gradient(135deg,#6366f1,#a855f7);
+          display:flex; align-items:center; justify-content:center; font-size:48px;
+          box-shadow:0 24px 70px -18px rgba(99,102,241,.65); margin-bottom:30px;
+          animation:pop .6s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes pop { from { transform:scale(.7); opacity:0 } to { transform:scale(1); opacity:1 } }
+  h1 { font-size:40px; font-weight:700; letter-spacing:-.8px; }
+  h1 span { background:linear-gradient(90deg,#a5b4fc,#c4b5fd); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { margin-top:12px; color:#8b98a9; font-size:15px; max-width:520px; text-align:center; line-height:1.6; }
+  .launch {
+    -webkit-app-region:no-drag; margin-top:38px; border:0; cursor:pointer;
+    background:linear-gradient(90deg,#6366f1,#8b5cf6); color:#fff;
+    font-size:17px; font-weight:600; padding:15px 64px; border-radius:14px;
+    box-shadow:0 16px 44px -12px rgba(99,102,241,.7); transition:.18s;
+  }
+  .launch:hover { filter:brightness(1.14); transform:translateY(-1px); }
+  .launch:active { transform:translateY(0); }
+  .remember { -webkit-app-region:no-drag; margin-top:18px; display:flex; align-items:center; gap:8px;
+              color:#64748b; font-size:12.5px; cursor:pointer; }
+  .feat { position:relative; z-index:1; display:flex; gap:34px; margin-top:52px; }
+  .f { display:flex; align-items:center; gap:9px; color:#64748b; font-size:12.5px; }
+  .f b { color:#a5b4fc; font-weight:600; }
+  .foot { position:relative; z-index:1; text-align:center; padding:22px; color:#3b4757; font-size:11.5px; }
+</style>
+</head>
+<body>
+  <div class="bg"><div class="glow1"></div><div class="glow2"></div><div class="grid"></div></div>
+  <main>
+    <div class="logo">✦</div>
+    <h1>SheetNative <span>Desktop</span></h1>
+    <p class="sub">Your AI business operating system — as a native application.<br/>
+    Upload Excel, get software. Everything stays in sync with your workspace.</p>
+    <button class="launch" onclick="launch(false)">Launch SheetNative</button>
+    <label class="remember"><input type="checkbox" id="remember" /> Don't show this welcome screen again</label>
+    <div class="feat">
+      <div class="f"><b>✦</b> Offline-aware</div>
+      <div class="f"><b>⇩</b> Drag &amp; drop workbooks</div>
+      <div class="f"><b>◔</b> System tray</div>
+      <div class="f"><b>⌘</b> Full shortcuts</div>
+    </div>
+  </main>
+  <div class="foot">SheetNative Desktop <span id="ver"></span> · sheetnative.vercel.app</div>
+  <script>
+    document.getElementById("ver").textContent = new URLSearchParams(location.search).get("v") || "";
+    function launch(remember) {
+      const r = remember || document.getElementById("remember").checked;
+      location.href = "sheetnative://launch" + (r ? "?remember=1" : "");
+    }
+    // Enter launches
+    addEventListener("keydown", (e) => { if (e.key === "Enter") launch(false); });
+  </script>
+</body>
+</html>

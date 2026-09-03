@@ -32,11 +32,18 @@ function loadWindowState() {
   }
 }
 
-function saveWindowState() {
-  if (!mainWindow) return;
-  const bounds = mainWindow.getBounds();
+function saveWindowState(patch = {}) {
+  const next = { ...loadWindowState(), ...patch };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const bounds = mainWindow.getBounds();
+    next.width = bounds.width;
+    next.height = bounds.height;
+    next.x = bounds.x;
+    next.y = bounds.y;
+    next.maximized = mainWindow.isMaximized();
+  }
   try {
-    fs.writeFileSync(statePath(), JSON.stringify({ ...bounds, maximized: mainWindow.isMaximized() }));
+    fs.writeFileSync(statePath(), JSON.stringify(next));
   } catch {}
 }
 
@@ -82,7 +89,14 @@ function createWindow() {
   });
 
   if (prev.maximized) mainWindow.maximize();
-  mainWindow.loadURL(APP_URL);
+
+  // welcome screen (skippable) → then the app
+  if (prev.skipWelcome) mainWindow.loadURL(APP_URL);
+  else
+    mainWindow.loadFile("welcome.html", {
+      query: { v: app.getVersion() },
+    }).catch(() => mainWindow.loadURL(APP_URL));
+
   mainWindow.once("ready-to-show", () => mainWindow.show());
 
   /* desktop feel: smooth fade-in + crisp text rendering */
@@ -99,8 +113,16 @@ function createWindow() {
     }
   });
 
-  /* navigation guard: keep app inside product; route drops + external links */
+  /* navigation guard: welcome actions, file drops, external links, in-app nav */
   mainWindow.webContents.on("will-navigate", (e, url) => {
+    // welcome screen actions
+    if (url.startsWith("sheetnative://")) {
+      e.preventDefault();
+      const remember = url.includes("remember=1");
+      if (remember) saveWindowState({ skipWelcome: true });
+      mainWindow.loadURL(APP_URL);
+      return;
+    }
     if (url.startsWith("file:///")) {
       e.preventDefault();
       const p = path.normalize(decodeURIComponent(url.replace(/^file:\/\/\//, "")));
@@ -228,6 +250,41 @@ const isAppUrl = (url) => url.startsWith(APP_URL);
 
 function trackAuthPopup(popupWindow) {
   const wc = popupWindow.webContents;
+
+  // visible back/reload controls injected into every page of the popup
+  const injectNavButtons = () => {
+    wc.insertCSS(`
+      #sn-nav { position:fixed; top:10px; left:10px; z-index:2147483647; display:flex; gap:6px; }
+      #sn-nav button {
+        width:34px; height:34px; border-radius:50%; border:0; cursor:pointer;
+        background:rgba(15,23,42,.82); color:#fff; font-size:16px; line-height:1;
+        box-shadow:0 4px 14px rgba(0,0,0,.35); backdrop-filter:blur(4px);
+      }
+      #sn-nav button:hover { background:rgba(99,102,241,.95); }
+    `).then(() =>
+      wc.executeJavaScript(`
+        (function () {
+          if (document.getElementById("sn-nav")) return;
+          const bar = document.createElement("div");
+          bar.id = "sn-nav";
+          const back = document.createElement("button");
+          back.textContent = "\\u2190";
+          back.title = "Back (Alt+Left)";
+          back.onclick = () => history.back();
+          const reload = document.createElement("button");
+          reload.textContent = "\\u21bb";
+          reload.title = "Reload";
+          reload.onclick = () => location.reload();
+          bar.appendChild(back);
+          bar.appendChild(reload);
+          document.body.appendChild(bar);
+        })();
+      `).catch(() => {})
+    );
+  };
+  wc.on("did-navigate", injectNavButtons);
+  wc.on("did-navigate-in-page", injectNavButtons);
+
   const finish = (fullUrl) => {
     if (!isAppUrl(fullUrl)) return;
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(fullUrl);

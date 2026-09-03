@@ -12,6 +12,10 @@ const SUPABASE_URL = envOr(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   "https://vbayhnlkcoqgssgapaay.supabase.co"
 );
+const SUPABASE_ANON_KEY = envOr(
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  "sb_publishable_jBoN1Vj0SoRRRnPEbPnn4A_1b0pYPWC"
+);
 
 function serviceClient(): SupabaseClient | null {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,12 +43,24 @@ async function stripeMrrCents(secret: string): Promise<number> {
 }
 
 export async function GET(req: Request) {
+  try {
+    return await handle(req);
+  } catch (err) {
+    console.error("[admin/overview]", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Admin API crashed." },
+      { status: 500 }
+    );
+  }
+}
+
+async function handle(req: Request) {
   const authHeader = req.headers.get("authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token)
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
-  const anon = createClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: userData, error: userErr } = await anon.auth.getUser(token);
   if (userErr || !userData.user || !isAdminEmail(userData.user.email))
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
