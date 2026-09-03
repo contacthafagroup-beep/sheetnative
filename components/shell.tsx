@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cx, Badge } from "@/components/ui";
 import { getSupabase } from "@/lib/supabase/client";
+import { isAdminEmail } from "@/lib/admin";
 import { showAuth } from "@/components/auth";
 import { answerQuestion, type ChatMessage } from "@/lib/nlq";
 import type { Analysis } from "@/lib/types";
@@ -23,8 +24,9 @@ const NAV = [
   { href: "/app/approvals", label: "Approvals", icon: ClipboardCheck },
   { href: "/app/marketplace", label: "Marketplace", icon: Store },
   { href: "/app/billing", label: "Billing", icon: CreditCard },
-  { href: "/app/admin", label: "Admin", icon: ShieldHalf },
 ];
+
+const ADMIN_NAV = { href: "/app/admin", label: "Admin", icon: ShieldHalf };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -81,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {!collapsed && <span className="font-semibold tracking-tight">SheetNative</span>}
         </div>
         <nav className="mt-2 flex-1 space-y-0.5 px-2">
-          {NAV.map((n) => {
+          {(isAdminEmail(userEmail) ? [...NAV, ADMIN_NAV] : NAV).map((n) => {
             const active = n.href === "/app" ? pathname === "/app" : pathname.startsWith(n.href);
             return (
               <Link
