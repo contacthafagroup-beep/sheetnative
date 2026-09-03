@@ -90,8 +90,8 @@ function createWindow() {
 
   if (prev.maximized) mainWindow.maximize();
 
-  // first-run setup screen (skippable) → then the app
-  if (prev.skipWelcome) mainWindow.loadURL(APP_URL);
+  // first-run setup screen: shows once per app version (desktop convention)
+  if (prev.welcomeShownFor === app.getVersion()) mainWindow.loadURL(APP_URL);
   else
     mainWindow
       .loadFile("welcome.html", {
@@ -121,7 +121,7 @@ function createWindow() {
     if (url.startsWith("sheetnative://")) {
       e.preventDefault();
       const q = new URLSearchParams(url.split("?")[1] ?? "");
-      if (q.get("remember") === "1") saveWindowState({ skipWelcome: true });
+      saveWindowState({ welcomeShownFor: app.getVersion() });
       if (process.platform === "win32")
         app.setLoginItemSettings({ openAtLogin: q.get("startup") === "1", path: process.execPath });
       mainWindow.loadURL(APP_URL);
