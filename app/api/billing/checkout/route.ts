@@ -8,14 +8,14 @@ export const dynamic = "force-dynamic";
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://vbayhnlkcoqgssgapaay.supabase.co";
 const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "REPLACE_WITH_ANON_KEY";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "sb_publishable_jBoN1Vj0SoRRRnPEbPnn4A_1b0pYPWC";
 
 function siteUrl(req: Request): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.VERCEL_URL ??
-    new URL(req.url).origin
-  );
+  const env = process.env.NEXT_PUBLIC_SITE_URL;
+  if (env) return env;
+  const v = process.env.VERCEL_URL;
+  if (v) return `https://${v}`;
+  return new URL(req.url).origin;
 }
 
 export async function POST(req: Request) {
